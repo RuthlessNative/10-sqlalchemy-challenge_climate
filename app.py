@@ -5,6 +5,8 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
 
+from datetime import datetime, timedelta
+
 ## import flask
 from flask import Flask, jsonify
 
@@ -42,12 +44,34 @@ app = Flask(__name__)
 def home_page():
     return (
         f"Welcome to the Climate App!<br/>"
-        f"Available Routes:<br/>"
+        f"<br>"
+        f"Available Routes: (copy and paste one at the end of the web address)<br/>"
+        f"<br/>"
+
+        f"Convert the query results to a dictionary using date as the key and prcp as the value. "
+        f"Return the JSON representation of your dictionary.<br/>"
         f"/api/v1.0/precipitation<br/>"
+        f"<br/>"
+
+        f"Return a JSON list of stations from the dataset.<br/>"
         f"/api/v1.0/stations<br/>"
+        f"<br/>"
+
+        f"Query the dates and temperature observations of the most active station for the last year of data. "
+        f"Return a JSON list of temperature observations (TOBS) for the previous year.<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/<start><br/>"
-        f"api/v1.0/<start>/<end><br/>"
+        f"<br/>"
+
+        f"When given the start only, calculate TMIN, TAVG, and TMAX "
+        f"for all dates greater than and equal to the start date.<br/>"
+        f"(replace 'start' with date format YYYY-MM-DD)<br/>"
+        f"/api/v1.0/start<br/>"
+        f"<br/>"
+
+        f"When given the start and the end date, calculate the TMIN, TAVG, and TMAX "
+        f"for dates between the start and end date inclusive.<br/>"
+        f"(replace 'start' and 'end' with date format YYYY-MM-DD)<br/>"
+        f"/api/v1.0/start/end<br/>"
     )
     
 # @app.route("/api/v1.0/names")
@@ -181,7 +205,65 @@ def tobs():
 
 
 #################################################
+## Start Date
+#################################################
+
+## When given the start only, calculate TMIN, TAVG, and TMAX 
+## for all dates greater than and equal to the start date.
+
+## Sample code
+# @app.route("/api/v1.0/justice-league/superhero/<superhero>")
+# def justice_league_by_superhero__name(superhero):
+#     """Fetch the Justice League character whose superhero matches
+#        the path variable supplied by the user, or a 404 if not."""
+
+#     canonicalized = superhero.replace(" ", "").lower()
+#     for character in justice_league_members:
+#         search_term = character["superhero"].replace(" ", "").lower()
+
+#         if search_term == canonicalized:
+#             return jsonify(character)
+
+@app.route("/api/v1.0/<start_date>")
+def start(start_date):
+    ## Create the session (link) from Python to the DB
+    session = Session(engine)
+
+    calc = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+             filter(Measurement.date >= start_date).all()
+    
+    ## Close the session
+    session.close()
+
+    ## Convert list of tuples into normal list
+    calc_ls = list(np.ravel(calc))
+
+    return jsonify(calc_ls)
+
+#################################################
 ## Start/End Date
 #################################################
 
-#/api/v1.0/<start> and /api/v1.0/<start>/<end>
+## When given the start and the end date, calculate the TMIN, TAVG, and TMAX
+## for dates between the start and end date inclusive.
+
+@app.route("/api/v1.0/<start_date>/<end_date>")
+def start_end(start_date, end_date):
+    ## Create the session (link) from Python to the DB
+    session = Session(engine)
+
+    calc = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+             filter(Measurement.date >= start_date).\
+             filter(Measurement.date <= end_date).all()
+    
+    ## Close the session
+    session.close()
+
+    ## Convert list of tuples into normal list
+    calc_ls = list(np.ravel(calc))
+
+    return jsonify(calc_ls)
+
+## Must be used to run code
+if __name__ == '__main__':
+    app.run(debug=True)
